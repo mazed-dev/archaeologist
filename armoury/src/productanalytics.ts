@@ -32,7 +32,7 @@ function posthogApiHost(): string {
   //
   // See https://github.com/mazed-dev/posthog-reverse-proxy for how the proxy
   // is expected to be configured.
-  return 'https://pa.mazed.se'
+  return 'https://eu.posthog.com'
 }
 
 /**

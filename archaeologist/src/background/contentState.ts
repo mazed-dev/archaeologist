@@ -1,4 +1,4 @@
-import { AccountInterface, NodeUtil, StorageApi } from 'smuggler-api'
+import { NodeUtil, StorageApi } from 'smuggler-api'
 import type { ContentAppOperationMode } from '../message/types'
 import { ToContent, ContentAugmentationSettings } from '../message/types'
 import { requestPageSavedStatusWithConnections } from './pageStatus'
@@ -8,7 +8,6 @@ import type { AppSettings } from 'truthsayer-archaeologist-communication'
 /** Calculates how the content script of a specific tab should be initialised. */
 export async function calculateInitialContentState(
   storage: StorageApi,
-  account: AccountInterface | undefined,
   tabUrl: string,
   mode: ContentAppOperationMode,
   appSettings: AppSettings
@@ -18,7 +17,6 @@ export async function calculateInitialContentState(
   return {
     type: 'INIT_CONTENT_AUGMENTATION_REQUEST',
     nodeEnv: process.env.NODE_ENV,
-    userUid: account?.getUid(),
     bookmark: bookmark ? NodeUtil.toJson(bookmark) : undefined,
     fromNodes: fromNodes?.map((node) => NodeUtil.toJson(node)) ?? [],
     toNodes: toNodes?.map((node) => NodeUtil.toJson(node)) ?? [],

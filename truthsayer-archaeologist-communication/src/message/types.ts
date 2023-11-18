@@ -18,7 +18,6 @@ import type { AnalyticsIdentity } from 'armoury'
 import { truthsayer } from 'elementary'
 
 export type StorageType =
-  | 'datacenter' /** Stores user data in @file storage_api_datacenter.ts */
   | 'browser_ext' /** Stores user data in @file storage_api_browser_ext.ts */
 
 export type AppSuggestionsSettings = {

@@ -8,7 +8,6 @@ import type {
   ResourceVisit,
   StorageApi,
   TotalUserActivity,
-  UserAccount,
   UserExternalPipelineId,
   UserExternalPipelineIngestionProgress,
 } from 'smuggler-api'
@@ -63,7 +62,6 @@ export namespace BrowserHistoryUpload {
 
   export async function upload(
     storage: StorageApi,
-    account: UserAccount | undefined,
     mode: BrowserHistoryUploadMode,
     onProgress: (progress: BackgroundActionProgress) => Promise<void>
   ) {
@@ -141,7 +139,6 @@ export namespace BrowserHistoryUpload {
 
         const resp = await getPageContentViaTemporaryTab(
           storage,
-          account,
           window.id,
           item.url
         )
@@ -277,7 +274,6 @@ export namespace BrowserHistoryUpload {
 
   async function getPageContentViaTemporaryTab(
     storage: StorageApi,
-    account: UserAccount | undefined,
     windowId: number,
     url: string
   ): Promise<
@@ -315,7 +311,6 @@ export namespace BrowserHistoryUpload {
       }
       const request = await calculateInitialContentState(
         storage,
-        account,
         tab.url,
         {
           type: 'passive-mode-content-app',

@@ -1,4 +1,3 @@
-export * from './account/LogInForm'
 export * from './CheckBox'
 export * from './HoverTooltip'
 export * from './ImgButton'

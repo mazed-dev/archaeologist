@@ -1,4 +1,3 @@
-import { DisappearingToastProps } from '../content/toaster/Toaster'
 import { extractSearchEngineQuery } from '../content/extractor/url/searchEngineQuery'
 
 import {
@@ -23,7 +22,6 @@ import {
   StorageApi,
 } from 'smuggler-api'
 import { FromContent, ToContent } from '../message/types'
-import { truthsayer } from 'elementary'
 import * as badge from '../badge/badge'
 
 const ACTION_DONE_BADGE_MARKER = '✓'
@@ -66,30 +64,6 @@ async function updateContent(
       return
     }
     log.exception(error, 'Content augmentation sending failed')
-  }
-}
-
-async function showDisappearingNotification(
-  tabId: number | undefined,
-  notification: DisappearingToastProps
-) {
-  if (tabId == null) {
-    return
-  }
-  try {
-    await ToContent.sendMessage(tabId, {
-      type: 'SHOW_DISAPPEARING_NOTIFICATION',
-      ...notification,
-    })
-  } catch (e) {
-    const err = errorise(e)
-    if (isAbortError(err)) {
-      return
-    }
-    log.debug(
-      'Request to show disappearing notification in the tab failed',
-      err
-    )
   }
 }
 
@@ -215,11 +189,6 @@ export async function saveWebPage(
   const { nid } = resp
   const node = await storage.node.get({ nid })
   await updateContent([], [], node, tabId)
-  await showDisappearingNotification(tabId, {
-    text: 'Added',
-    tooltip: 'Page is added to your timeline',
-    href: truthsayer.url.makeNode(nid).toString(),
-  })
   return { node, unmemorable: false }
 }
 
