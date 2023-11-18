@@ -39,12 +39,7 @@ import {
 import { extractSimilaritySearchPhraseFromPageContent } from './extractor/webPageSearchPhrase'
 
 import { Quotes } from './quote/Quotes'
-import { ActivityTracker } from './activity-tracker/ActivityTracker'
-import {
-  Toaster,
-  DisappearingToast,
-  DisappearingToastProps,
-} from './toaster/Toaster'
+import { Toaster } from './toaster/Toaster'
 import { AppErrorBoundary } from './AppErrorBoundary'
 import { isPageAutosaveable } from './extractor/url/autosaveable'
 import { Augmentation } from './augmentation/Augmentation'
@@ -122,7 +117,6 @@ type InitializedState = {
 
   toNodes: TNode[]
   fromNodes: TNode[]
-  notification?: DisappearingToastProps
 
   analytics: PostHog | null
 
@@ -149,10 +143,6 @@ type Action =
       analytics: PostHog | null
     }
   | { type: 'update-nodes'; data: ToContent.UpdateContentAugmentationRequest }
-  | {
-      type: 'show-notification'
-      data: ToContent.ShowDisappearingNotificationRequest
-    }
   | {
       type: 'notify-tab-status-update'
       data: ToContent.RequestTabStatusUpdate
@@ -236,21 +226,6 @@ function updateState(state: State, action: Action): State {
           d.mode === 'reset' ? newToNodes : state.toNodes.concat(newToNodes),
         bookmark:
           d.mode === 'reset' ? newBookmark : state.bookmark || newBookmark,
-      }
-    case 'show-notification':
-      if (state.mode === 'uninitialised-content-app') {
-        throw new Error("Can't modify state of an unitialized content app")
-      }
-
-      const { text, href, tooltip, timeoutMsec } = action.data
-      return {
-        ...state,
-        notification: {
-          text,
-          tooltip,
-          href,
-          timeoutMsec,
-        },
       }
     case 'notify-tab-status-update':
       if (state.mode === 'uninitialised-content-app') {
@@ -349,9 +324,6 @@ async function mutatingRequestToAction(
     }
     case 'REQUEST_UPDATE_CONTENT_AUGMENTATION': {
       return { type: 'update-nodes', data: request }
-    }
-    case 'SHOW_DISAPPEARING_NOTIFICATION': {
-      return { type: 'show-notification', data: request }
     }
     case 'REQUEST_UPDATE_TAB_STATUS': {
       return { type: 'notify-tab-status-update', data: request }
@@ -454,8 +426,7 @@ const App = () => {
         }
         case 'INIT_CONTENT_AUGMENTATION_REQUEST':
         case 'REQUEST_UPDATE_CONTENT_AUGMENTATION':
-        case 'REQUEST_UPDATE_TAB_STATUS':
-        case 'SHOW_DISAPPEARING_NOTIFICATION': {
+        case 'REQUEST_UPDATE_TAB_STATUS': {
           dispatch(await mutatingRequestToAction(message))
           return { type: 'VOID_RESPONSE' }
         }
@@ -496,32 +467,11 @@ const App = () => {
           <>
             <Toaster />
             <AugmentationMountPoint />
-            {state.notification ? (
-              <DisappearingToast {...state.notification} />
-            ) : null}
             <Quotes
               quotes={state.toNodes.filter(
                 (node) => node.ntype === NodeType.WebQuote
               )}
             />
-            {state.mode.type === 'active-mode-content-app' ? (
-              <ActivityTracker
-                registerAttentionTime={(
-                  deltaSeconds: number,
-                  totalSecondsEstimation: number
-                ) =>
-                  FromContent.sendMessage({
-                    type: 'ATTENTION_TIME_CHUNK',
-                    deltaSeconds,
-                    totalSecondsEstimation,
-                    origin: state.originIdentity,
-                  })
-                }
-                disabled={state.bookmark != null}
-                stableUrl={state.originIdentity.stableUrl}
-                tabTitleUpdateCounter={state.tabStatus.titleUpdateCounter}
-              />
-            ) : null}
             <Augmentation
               stableUrl={state.originIdentity.stableUrl}
               excludeNids={genExcludeNidsForSimilaritySearch(

@@ -34,9 +34,7 @@ import {
   TotalUserActivity,
   NodeCreatedVia,
   StorageApi,
-  makeDatacenterStorageApi,
   processMsgFromMsgProxyStorageApi,
-  UserAccount,
 } from 'smuggler-api'
 
 import { makeBrowserExtStorageApi } from './storage_api_browser_ext'
@@ -54,15 +52,10 @@ import type { BackgroundPosthog } from './background/productanalytics'
 import { OpenTabs } from './background/external-import/openTabs'
 import * as contentState from './background/contentState'
 import * as similarity from './background/search/similarity'
-import * as auth from './background/auth'
 import CancellationToken from 'cancellationtoken'
 import { meteredStorageApi } from './storage_api_metered'
 
 const BADGE_MARKER_PAGE_SAVED = '✓'
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 /**
  * Same as browser.Tabs.Tab, but with certain fields important
@@ -321,14 +314,10 @@ async function handleMessageFromPopup(
       await badge.setActive(true)
       return {
         type: 'APP_STATUS_RESPONSE',
-        userUid: ctx.account?.getUid(),
         analyticsIdentity: await backgroundpa.getIdentity(
           browser.storage.local
         ),
       }
-    }
-    case 'REQUEST_TO_LOG_IN': {
-      throw new Error(`Authentication has already been successfully completed`)
     }
     case 'MSG_PROXY_STORAGE_ACCESS_REQUEST': {
       return {
@@ -357,8 +346,6 @@ function makeStorageApi(
   analytics: BackgroundPosthog | null
 ): StorageApi {
   switch (storageType) {
-    case 'datacenter':
-      return makeDatacenterStorageApi()
     case 'browser_ext':
       const impl = makeBrowserExtStorageApi(browser.storage.local)
       return analytics != null ? meteredStorageApi(impl, analytics) : impl
@@ -371,7 +358,6 @@ type BackgroundContext = {
   similarity: {
     cancelPreviousSearch?: (reason?: string) => void
   }
-  account?: UserAccount
 }
 
 /**
@@ -422,7 +408,11 @@ class Background {
       )
       // Product analytics should be initialised ASAP because
       // other initialisation stages may require access to feature flags
-      const analytics = await backgroundpa.make(analyticsIdentity)
+      // Temporary disable PostHog analytics to figure out to what extent it's
+      // acceptable to use analytics tools such as PostHog in corporate
+      // environments.
+      // await backgroundpa.make(analyticsIdentity)
+      const analytics = null
 
       const storage = makeStorageApi('browser_ext', analytics)
 
@@ -432,29 +422,7 @@ class Background {
         similarity: {},
       }
       const context = await this.init(ctx, analyticsIdentity)
-      auth.observe({
-        onLogin: async (account: UserAccount) => {
-          if (this.state.phase !== 'init-done') {
-            throw new FromBackground.IncompatibleInitPhase({
-              expected: 'init-done',
-              actual: this.state.phase,
-            })
-          }
-          this.state.context.account = account
-        },
-        onLogout: async () => {
-          if (this.state.phase !== 'init-done') {
-            log.debug(
-              `Attempted to deinit background, but its state is already '${this.state.phase}'`
-            )
-            return
-          }
-          log.debug(`Background deinit started`)
-          this.state.context.account = undefined
-        },
-      })
       this.state = { phase: 'init-done', context }
-      await auth.register(storage, analytics)
       log.debug('Background init done', timer.elapsedSecondsPretty())
     } catch (initFailureReason) {
       log.error(
@@ -486,7 +454,6 @@ class Background {
         }
         const request = await contentState.calculateInitialContentState(
           ctx.storage,
-          ctx.account,
           tab.url,
           { type: 'active-mode-content-app', analyticsIdentity },
           await getAppSettings(browser.storage.local)
@@ -690,68 +657,11 @@ class Background {
 
     switch (message.type) {
       case 'REQUEST_APP_STATUS': {
-        const userUid =
-          this.state.phase === 'init-done'
-            ? this.state.context.account?.getUid()
-            : undefined
-        await badge.setActive(userUid != null)
         return {
           type: 'APP_STATUS_RESPONSE',
-          userUid,
           analyticsIdentity: await backgroundpa.getIdentity(
             browser.storage.local
           ),
-        }
-      }
-      case 'REQUEST_TO_LOG_IN': {
-        let initDone = false
-        const timeout = new Promise<never>((_, reject) => {
-          sleep(5000).then(
-            () => {
-              reject(
-                initDone
-                  ? `Initialisation successful, timeout no longer needed`
-                  : `Initialisation after successful login has timed out`
-              )
-            },
-            () => {}
-          )
-        })
-        // The goal of the promise below is to wait until Background.init()
-        // finishes fully. This means the sender of the request knows
-        // deterministically when it's allowed to start sending requests
-        // not related to authentication.
-        //
-        // HACK: Implementation of the above however is a hack -- it
-        // piggy backs on the fact that
-        //    - `auth.observe` executes callbacks in order of their registration
-        //    - when `auth.observe` executes callbacks, it `await`s for a callback
-        //      to finish before going to the next one
-        //    - the very first callback registered with `auth.observe` is the
-        //      one which calls `Background.init()`
-        // in order of their registreation
-        const waitForInit = new Promise<UserAccount>((resolve, reject) => {
-          const stopObserving = auth.observe({
-            onLogin: async (account: UserAccount) => {
-              stopObserving()
-              resolve(account)
-            },
-            onLogout: async () => {
-              stopObserving()
-              reject()
-            },
-          })
-          initDone = true
-        })
-        await auth.login(message.args)
-        const account = await Promise.race([timeout, waitForInit])
-        return {
-          type: 'RESPONSE_LOG_IN',
-          user: {
-            email: account.getEmail(),
-            uid: account.getUid(),
-            name: account.getName(),
-          },
         }
       }
     }
@@ -763,7 +673,6 @@ class Background {
     sender: browser.Runtime.MessageSender
   ): Promise<ToTruthsayer.Response> {
     if (message.type === 'CHECK_AUTHORISATION_STATUS_REQUEST') {
-      await auth.check()
       return { type: 'VOID_RESPONSE' }
     }
     if (this.state.phase !== 'init-done') {
@@ -809,7 +718,6 @@ class Background {
       case 'UPLOAD_BROWSER_HISTORY': {
         await BrowserHistoryUpload.upload(
           ctx.storage,
-          ctx.account,
           message,
           (progress: BackgroundActionProgress) =>
             reportBackgroundActionProgress('browser-history-upload', progress)

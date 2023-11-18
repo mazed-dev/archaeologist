@@ -9,22 +9,6 @@ const TerserPlugin = require('terser-webpack-plugin')
 // Folder where ML models are stored
 const MODELS_FOLDER_NAME = "models"
 
-const _getTruthsayerUrl = (mode) => {
-  return mode === 'development' ? 'http://localhost:3000' : 'https://mazed.se/'
-}
-
-const _getTruthsayerUrlMask = (mode) => {
-  const url = new URL(_getTruthsayerUrl(mode))
-  url.pathname = '*'
-  return url.toString()
-}
-
-const _getSmugglerApiUrl = (mode) => {
-  return mode === 'development'
-    ? "http://localhost:3000"
-    : "https://mazed.se/smuggler"
-}
-
 const _readVersionFromFile = async () => {
   const filePath = path.join(__dirname, 'public/version.txt')
   const readFile = util.promisify(fs.readFile)
@@ -84,7 +68,6 @@ const _manifestTransform = (buffer, mode, env, archaeologistVersion) => {
   // from truthsayer to archaeologist.
   // See https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/externally_connectable
   // for more details.
-  manifest.externally_connectable.matches.push(_getTruthsayerUrlMask(mode))
   manifest.web_accessible_resources.push({
     resources: [`${MODELS_FOLDER_NAME}/*`],
     matches: [],
@@ -256,12 +239,6 @@ const config = async (env, argv) => {
             : (env.firefox) ? "firefox"
               : (env.safari) ? "safari"
                 : (env.edge) ? "edge" : ""
-        ),
-        'process.env.REACT_APP_SMUGGLER_API_URL': JSON.stringify(
-          _getSmugglerApiUrl(argv.mode)
-        ),
-        'process.env.REACT_APP_TRUTHSAYER_URL': JSON.stringify(
-          _getTruthsayerUrl(argv.mode)
         ),
       }),
     ],

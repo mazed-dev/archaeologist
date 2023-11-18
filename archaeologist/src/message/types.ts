@@ -1,4 +1,4 @@
-import { AccountInfo, PreviewImageSmall, SessionCreateArgs } from 'smuggler-api'
+import { AccountInfo, PreviewImageSmall } from 'smuggler-api'
 import type { TextContentBlock } from 'smuggler-api'
 import browser from 'webextension-polyfill'
 import type {
@@ -112,10 +112,6 @@ export namespace FromPopUp {
   export interface AppStatusRequest {
     type: 'REQUEST_APP_STATUS'
   }
-  export interface LogInRequest {
-    type: 'REQUEST_TO_LOG_IN'
-    args: SessionCreateArgs
-  }
 
   export interface PageInActiveTabStatusRequest {
     type: 'REQUEST_PAGE_IN_ACTIVE_TAB_STATUS'
@@ -136,16 +132,12 @@ export namespace FromPopUp {
     | SavePageRequest
     | PageInActiveTabStatusRequest
     | AppStatusRequest
-    | LogInRequest
     | StorageAccessRequest
     | UpdateNodeRequest
 
   export function sendMessage(
     message: AppStatusRequest
   ): Promise<ToPopUp.AppStatusResponse>
-  export function sendMessage(
-    message: LogInRequest
-  ): Promise<ToPopUp.LogInResponse>
   export function sendMessage(
     message: SavePageRequest
   ): Promise<ToPopUp.PageSavedResponse>
@@ -268,13 +260,6 @@ export namespace ToContent {
     type: 'REQUEST_SELECTED_WEB_QUOTE'
     text: string
   }
-  export interface ShowDisappearingNotificationRequest {
-    type: 'SHOW_DISAPPEARING_NOTIFICATION'
-    text: string
-    href?: string
-    tooltip?: string
-    timeoutMsec?: number
-  }
   export interface ReportBackgroundOperationProgress {
     type: 'REPORT_BACKGROUND_OPERATION_PROGRESS'
     operation: BackgroundAction
@@ -299,7 +284,6 @@ export namespace ToContent {
   export type MutatingRequest =
     | InitContentAugmentationRequest
     | UpdateContentAugmentationRequest
-    | ShowDisappearingNotificationRequest
     | RequestTabStatusUpdate
   /** Requests that aim to retrieve part of recepient's state without modifying it. */
   export type ReadOnlyRequest =
@@ -338,10 +322,6 @@ export namespace ToContent {
     tabId: number,
     message: GetSelectedQuoteRequest
   ): Promise<FromContent.GetSelectedQuoteResponse>
-  export function sendMessage(
-    tabId: number,
-    message: ShowDisappearingNotificationRequest
-  ): Promise<VoidResponse>
   export function sendMessage(
     tabId: number,
     message: InitContentAugmentationRequest
